@@ -1,16 +1,22 @@
-# Anonymous Apex Execution
+# Salesforce Developer Toolbox
 
-Run anonymous Apex against your connected Salesforce orgs without leaving VS Code's side panel.
+A set of everyday Salesforce developer tools in VS Code's side panel, driven by the [Salesforce CLI](https://developer.salesforce.com/tools/salesforcecli) (`sf`). A target-org picker sits at the top of the panel at all times; the tabs below switch between tools.
 
 ## Features
 
-The extension adds an **Execute Anonymous Apex** view to the Activity Bar (rocket icon). From there you can:
+The extension adds a **Salesforce Developer Toolbox** view to the Activity Bar. From there you can:
 
-- **Pick a target org** from a dropdown populated with the orgs your [Salesforce CLI](https://developer.salesforce.com/tools/salesforcecli) (`sf`) is currently connected to.
+### Anonymous Apex
+
+- **Pick a target org** from a dropdown populated with the orgs your `sf` CLI is currently connected to.
 - **Write Apex** in a syntax-highlighted editor (keywords, types, strings, comments, numbers, annotations, and inline SOQL keywords are colored to match your VS Code theme).
 - **Execute** the code with one click — it's run via `sf apex run --target-org <org>` against the selected org.
-- **Review the result** inline: compile errors, exceptions and stack traces, and the full debug log are shown directly in the panel (and mirrored to the "Anonymous Apex Execution" output channel).
+- **Review the result** inline: compile errors, exceptions and stack traces, and the full debug log are shown directly in the panel (and mirrored to the "Salesforce Developer Toolbox" output channel).
 - **Filter to `System.debug` output only** with the "System Debug Only" checkbox, which appears once a result is available, to cut through the noise of the full execution log.
+
+### Debug Logs Manager
+
+- **Enable debug logs for a user** by selecting an active user and a trace duration, then clicking **Set Trace Flag**. This reuses (or creates) a shared `ApexExecutioner` debug level and sets a `USER_DEBUG` trace flag via the Tooling API.
 
 ## Requirements
 

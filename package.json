@@ -1,6 +1,6 @@
 {
-  "name": "anonymous-apex-execution",
-  "displayName": "Anonymous Apex Execution",
+  "name": "salesforce-developer-toolbox",
+  "displayName": "Salesforce Developer Toolbox",
   "description": "",
   "version": "0.0.2",
   "engines": {
@@ -9,22 +9,26 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RomanczykMichal/Salesforce-Developer-Toolbox.git"
+  },
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "anonymousApexExecution",
-          "title": "Salesforce Apex Code Executioner",
+          "id": "salesforceDeveloperToolbox",
+          "title": "Salesforce Developer Toolbox",
           "icon": "logo.svg"
         }
       ]
     },
     "views": {
-      "anonymousApexExecution": [
+      "salesforceDeveloperToolbox": [
         {
-          "id": "anonymousApexExecution.apexExecutionView",
+          "id": "salesforceDeveloperToolbox.mainView",
           "name": "",
           "type": "webview"
         }
