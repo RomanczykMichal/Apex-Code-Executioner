@@ -21,13 +21,15 @@ function render(
 	const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, `${name}.js`));
 	const nonce = crypto.randomBytes(16).toString('base64');
 
+	// Use function replacers so values containing `$` sequences (e.g. `$&`, `$1`) are inserted
+	// literally instead of being interpreted as replacement patterns.
 	let html = fs.readFileSync(htmlPath, 'utf8')
-		.replace(/{{cspSource}}/g, webview.cspSource)
-		.replace(/{{nonce}}/g, nonce)
-		.replace(/{{styleUri}}/g, styleUri.toString())
-		.replace(/{{scriptUri}}/g, scriptUri.toString());
+		.replace(/{{cspSource}}/g, () => webview.cspSource)
+		.replace(/{{nonce}}/g, () => nonce)
+		.replace(/{{styleUri}}/g, () => styleUri.toString())
+		.replace(/{{scriptUri}}/g, () => scriptUri.toString());
 	for (const [key, value] of Object.entries(replacements)) {
-		html = html.replace(new RegExp(`{{${key}}}`, 'g'), value);
+		html = html.replace(new RegExp(`{{${key}}}`, 'g'), () => value);
 	}
 	return html;
 }

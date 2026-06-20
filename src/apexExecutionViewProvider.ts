@@ -3,7 +3,7 @@ import { listConnectedOrgs, toOrgOptions } from './sf/orgService';
 import { formatResult, runAnonymousApex, summarize } from './sf/apexService';
 import { listApexLogs } from './sf/debugLogsService';
 import { renderWebviewHtml } from './webview';
-import { showTraceFlagsPanel } from './traceFlagsPanel';
+import { showTraceFlagsPanel, updateTraceFlagsOrg } from './traceFlagsPanel';
 import { showLogContent, showLogPanel } from './logViewerPanel';
 import { ApexRunResult } from './types';
 
@@ -34,6 +34,8 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 				await this.runApex(message.org, message.text, webviewView);
 			} else if (message.command === 'manageTraceFlags') {
 				showTraceFlagsPanel(this.extensionUri, message.org);
+			} else if (message.command === 'orgChanged') {
+				updateTraceFlagsOrg(message.org);
 			} else if (message.command === 'loadLogs') {
 				await this.sendLogs(message.org, webviewView);
 			} else if (message.command === 'openLog') {

@@ -84,8 +84,14 @@ async function deliver(panel: vscode.WebviewPanel): Promise<void> {
 	panel.webview.postMessage({ command: 'loading', label: source.label });
 	try {
 		const content = await getApexLog(source.org, source.logId);
+		if (currentSource !== source) {
+			return; // a newer request superseded this one while the fetch was in flight
+		}
 		panel.webview.postMessage({ command: 'log', content, label: source.label });
 	} catch (err) {
+		if (currentSource !== source) {
+			return;
+		}
 		const message = err instanceof Error ? err.message : String(err);
 		panel.webview.postMessage({ command: 'error', message });
 	}

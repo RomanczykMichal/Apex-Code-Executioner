@@ -215,6 +215,7 @@
 
 	orgSelect.addEventListener('change', () => {
 		traceStatus.textContent = '';
+		vscode.postMessage({ command: 'orgChanged', org: orgSelect.value });
 		if (isDebugTabActive()) {
 			loadLogs();
 		}

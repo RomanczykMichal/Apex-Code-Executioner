@@ -20,6 +20,19 @@ export function runSf<T>(args: string[]): Promise<T> {
 			args,
 			{ shell: true, maxBuffer: MAX_BUFFER },
 			(error, stdout) => {
+				// A maxBuffer overflow comes back as an error with truncated stdout, which
+				// would otherwise fail JSON.parse and surface a misleading "could not parse"
+				// message. Detect it and explain the real cause instead.
+				const maxBufferExceeded = !!error && (
+					(error as NodeJS.ErrnoException).code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' ||
+					/maxBuffer/i.test(error.message)
+				);
+				if (maxBufferExceeded) {
+					reject(new Error(
+						'Salesforce CLI output exceeded the size limit. The log or query result is too large to display.'
+					));
+					return;
+				}
 				if (!stdout) {
 					reject(error ?? new Error('No output from Salesforce CLI.'));
 					return;

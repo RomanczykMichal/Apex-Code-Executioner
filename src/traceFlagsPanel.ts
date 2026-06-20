@@ -74,6 +74,20 @@ export function showTraceFlagsPanel(extensionUri: vscode.Uri, org: string): void
 	});
 }
 
+/**
+ * Updates the org used by the open trace-flags panel when the user changes the selection in
+ * the main view, so subsequent set/extend/delete/refresh actions target the right org. Does
+ * nothing when the panel is closed.
+ */
+export function updateTraceFlagsOrg(org: string): void {
+	if (!currentPanel) {
+		return;
+	}
+	currentOrg = org;
+	currentPanel.title = panelTitle(org);
+	void refreshAll(currentPanel, currentOrg);
+}
+
 async function handleSet(panel: vscode.WebviewPanel, org: string, userId: string, minutes: number, debugLevelId: string): Promise<void> {
 	if (!userId) {
 		panel.webview.postMessage({ command: 'actionResult', message: 'Select a user before setting a trace flag.' });
