@@ -32,23 +32,29 @@
 		<button id="saveLog" class="hidden" type="button">Save Log</button>
 	</div>
 	<div class="tab-content" id="tab-debug">
-		<label for="user">User</label>
-		<select id="user">
-			<option value="">Select an org first</option>
-		</select>
-		<label for="duration">Trace duration</label>
-		<select id="duration">
-			<option value="15">15 minutes</option>
-			<option value="30" selected>30 minutes</option>
-			<option value="60">1 hour</option>
-			<option value="180">3 hours</option>
-			<option value="480">8 hours</option>
-			<option value="1440">24 hours</option>
-		</select>
-		<div>
-			<button id="setTraceFlag">Set Trace Flag</button>
-		</div>
+		<p class="hint">Set, extend, and remove debug trace flags for users in the selected org.</p>
+		<button id="manageTraceFlags" type="button">Manage Trace Flags</button>
 		<p id="traceStatus"></p>
+
+		<div class="logs-header">
+			<span class="logs-title">Log Entries</span>
+			<button id="refreshLogs" type="button">Refresh</button>
+		</div>
+		<p id="logsStatus" class="hint"></p>
+		<div class="logs-table-wrap">
+			<table id="logsTable" class="hidden">
+				<thead>
+					<tr>
+						<th>User</th>
+						<th>Operation</th>
+						<th>Status</th>
+						<th>Size</th>
+						<th>Time</th>
+					</tr>
+				</thead>
+				<tbody id="logsBody"></tbody>
+			</table>
+		</div>
 	</div>
 	<script nonce="{{nonce}}" src="{{scriptUri}}"></script>
 </body>

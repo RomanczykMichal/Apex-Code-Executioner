@@ -53,6 +53,11 @@ label {
 	margin-top: 0;
 	margin-bottom: 0.25rem;
 }
+.hint {
+	margin-top: 0.75rem;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
 .editor-wrap {
 	position: relative;
 	height: 12rem;
@@ -176,4 +181,56 @@ button:hover {
 	margin-top: 0.5rem;
 	color: var(--vscode-descriptionForeground);
 	font-size: 0.9em;
+}
+.logs-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	margin-top: 1.25rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--vscode-widget-border, transparent);
+}
+.logs-title {
+	font-weight: 600;
+}
+.logs-header button {
+	margin-top: 0;
+	padding: 0.2rem 0.7rem;
+	font-size: 0.85em;
+}
+#logsStatus {
+	margin-top: 0.4rem;
+}
+.logs-table-wrap {
+	margin-top: 0.5rem;
+	max-height: 18rem;
+	overflow: auto;
+}
+#logsTable {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.82em;
+}
+#logsTable th,
+#logsTable td {
+	text-align: left;
+	padding: 0.25rem 0.4rem;
+	border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+	white-space: nowrap;
+	max-width: 12rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+#logsTable th {
+	position: sticky;
+	top: 0;
+	background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+	font-weight: 600;
+}
+#logsTable tbody tr {
+	cursor: pointer;
+}
+#logsTable tbody tr:hover {
+	background-color: var(--vscode-list-hoverBackground);
 }

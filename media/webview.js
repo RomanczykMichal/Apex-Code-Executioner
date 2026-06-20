@@ -10,11 +10,12 @@
 	const highlightPre = document.querySelector('.highlight');
 	const tabButtons = document.querySelectorAll('.tab-button');
 	const tabContents = document.querySelectorAll('.tab-content');
-	const userSelect = document.getElementById('user');
-	const durationSelect = document.getElementById('duration');
 	const traceStatus = document.getElementById('traceStatus');
 	const saveLogButton = document.getElementById('saveLog');
-	let usersLoadedForOrg = null;
+	const refreshLogsButton = document.getElementById('refreshLogs');
+	const logsTable = document.getElementById('logsTable');
+	const logsBody = document.getElementById('logsBody');
+	const logsStatus = document.getElementById('logsStatus');
 
 	const APEX_KEYWORDS = new Set(['public', 'private', 'protected', 'global', 'class', 'interface', 'enum', 'extends', 'implements', 'static', 'final', 'abstract', 'virtual', 'override', 'void', 'return', 'if', 'else', 'for', 'while', 'do', 'switch', 'on', 'case', 'default', 'break', 'continue', 'new', 'this', 'super', 'try', 'catch', 'finally', 'throw', 'trigger', 'before', 'after', 'insert', 'update', 'delete', 'undelete', 'upsert', 'merge', 'instanceof', 'null', 'true', 'false', 'transient', 'testmethod', 'with', 'without', 'sharing', 'get', 'set', 'when']);
 	const APEX_TYPES = new Set(['integer', 'string', 'boolean', 'object', 'list', 'set', 'map', 'decimal', 'double', 'long', 'date', 'datetime', 'time', 'id', 'blob', 'sobject']);
@@ -170,11 +171,80 @@
 		vscode.postMessage({ command: 'saveLog', logs: lastResult.logs });
 	});
 
+	function isDebugTabActive() {
+		const activeTab = document.querySelector('.tab-content.active');
+		return !!activeTab && activeTab.id === 'tab-debug';
+	}
+
+	function loadLogs() {
+		const org = orgSelect.value;
+		if (!org) {
+			logsStatus.textContent = 'Select an org to see log entries.';
+			logsTable.classList.add('hidden');
+			return;
+		}
+		logsStatus.textContent = 'Loading log entries...';
+		vscode.postMessage({ command: 'loadLogs', org });
+	}
+
+	function formatLogTime(iso) {
+		if (!iso) {
+			return '';
+		}
+		const date = new Date(iso);
+		return isNaN(date.getTime()) ? iso : date.toLocaleString();
+	}
+
+	function formatSize(bytes) {
+		if (typeof bytes !== 'number' || isNaN(bytes)) {
+			return '';
+		}
+		if (bytes < 1024) {
+			return bytes + ' B';
+		}
+		const kb = bytes / 1024;
+		if (kb < 1024) {
+			return kb.toFixed(1) + ' KB';
+		}
+		return (kb / 1024).toFixed(1) + ' MB';
+	}
+
+	function renderLogs(logs, error) {
+		logsBody.innerHTML = '';
+		if (error) {
+			logsStatus.textContent = 'Failed to load log entries: ' + error;
+			logsTable.classList.add('hidden');
+			return;
+		}
+		if (!logs || logs.length === 0) {
+			logsStatus.textContent = 'No log entries found.';
+			logsTable.classList.add('hidden');
+			return;
+		}
+		for (const log of logs) {
+			const tr = document.createElement('tr');
+			const cells = [log.user, log.operation, log.status, formatSize(log.logLength), formatLogTime(log.startTime)];
+			for (const cell of cells) {
+				const td = document.createElement('td');
+				td.textContent = cell == null ? '' : String(cell);
+				td.title = td.textContent;
+				tr.appendChild(td);
+			}
+			tr.addEventListener('click', () => {
+				const label = (log.user || 'Log') + ' · ' + formatLogTime(log.startTime);
+				vscode.postMessage({ command: 'openLog', org: orgSelect.value, id: log.id, label: label });
+			});
+			logsBody.appendChild(tr);
+		}
+		logsStatus.textContent = logs.length + ' log entr' + (logs.length === 1 ? 'y' : 'ies') + '.';
+		logsTable.classList.remove('hidden');
+	}
+
 	function activateTab(tab) {
 		tabButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tab));
 		tabContents.forEach((content) => content.classList.toggle('active', content.id === 'tab-' + tab));
 		if (tab === 'debug') {
-			ensureUsersLoaded();
+			loadLogs();
 		}
 	}
 
@@ -182,44 +252,22 @@
 		btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 	});
 
-	function ensureUsersLoaded() {
-		const org = orgSelect.value;
-		if (!org || usersLoadedForOrg === org) {
-			return;
-		}
-		userSelect.innerHTML = '<option value="">Loading users...</option>';
-		traceStatus.textContent = '';
-		vscode.postMessage({ command: 'loadUsers', org });
-	}
-
 	orgSelect.addEventListener('change', () => {
-		usersLoadedForOrg = null;
 		traceStatus.textContent = '';
-		const activeTab = document.querySelector('.tab-content.active');
-		if (activeTab && activeTab.id === 'tab-debug') {
-			ensureUsersLoaded();
+		if (isDebugTabActive()) {
+			loadLogs();
 		}
 	});
 
-	userSelect.addEventListener('change', () => {
-		traceStatus.textContent = '';
-		const org = orgSelect.value;
-		const userId = userSelect.value;
-		if (org && userId) {
-			vscode.postMessage({ command: 'userSelected', org, userId });
-		}
-	});
+	refreshLogsButton.addEventListener('click', loadLogs);
 
-	document.getElementById('setTraceFlag').addEventListener('click', () => {
+	document.getElementById('manageTraceFlags').addEventListener('click', () => {
 		const org = orgSelect.value;
-		const userId = userSelect.value;
-		const minutes = Number(durationSelect.value);
-		if (!org || !userId) {
-			traceStatus.textContent = 'Select an org and a user first.';
+		if (!org) {
+			traceStatus.textContent = 'Select an org first.';
 			return;
 		}
-		traceStatus.textContent = 'Setting trace flag...';
-		vscode.postMessage({ command: 'setTraceFlag', org, userId, minutes });
+		vscode.postMessage({ command: 'manageTraceFlags', org });
 	});
 
 	window.addEventListener('message', (event) => {
@@ -247,28 +295,8 @@
 		} else if (message.command === 'result') {
 			lastResult = { success: message.success, summary: message.summary || '', logs: message.logs || '' };
 			renderOutput();
-		} else if (message.command === 'users') {
-			userSelect.innerHTML = '';
-			usersLoadedForOrg = orgSelect.value;
-			if (!message.users || message.users.length === 0) {
-				const option = document.createElement('option');
-				option.value = '';
-				option.textContent = message.error ? 'Failed to load users' : 'No active users found';
-				userSelect.appendChild(option);
-				return;
-			}
-			const placeholder = document.createElement('option');
-			placeholder.value = '';
-			placeholder.textContent = 'Select a user...';
-			userSelect.appendChild(placeholder);
-			for (const user of message.users) {
-				const option = document.createElement('option');
-				option.value = user.id;
-				option.textContent = user.label;
-				userSelect.appendChild(option);
-			}
-		} else if (message.command === 'traceFlagStatus' || message.command === 'traceFlagResult') {
-			traceStatus.textContent = message.message || '';
+		} else if (message.command === 'logs') {
+			renderLogs(message.logs, message.error);
 		}
 	});
 

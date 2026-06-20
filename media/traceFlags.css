@@ -1,0 +1,112 @@
+body {
+	font-family: var(--vscode-font-family);
+	color: var(--vscode-foreground);
+	padding: 1rem 1.5rem;
+}
+.toolbar {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+}
+h1 {
+	margin: 0;
+	font-size: 1.3em;
+}
+.subtitle {
+	margin: 0.25rem 0 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+button {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: none;
+	border-radius: 2px;
+	padding: 0.4rem 1rem;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+.setter {
+	display: flex;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-top: 1.25rem;
+}
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.field label {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+.field select {
+	min-width: 14rem;
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	border: 1px solid var(--vscode-dropdown-border, transparent);
+	border-radius: 2px;
+	padding: 0.3rem;
+}
+.hint {
+	margin: 0.4rem 0 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.85em;
+}
+.message {
+	margin-top: 1rem;
+	color: var(--vscode-descriptionForeground);
+}
+.hidden {
+	display: none;
+}
+table {
+	width: 100%;
+	margin-top: 1rem;
+	border-collapse: collapse;
+	font-size: 0.9em;
+}
+th,
+td {
+	text-align: left;
+	padding: 0.4rem 0.6rem;
+	border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35)));
+	white-space: nowrap;
+}
+th {
+	position: sticky;
+	top: 0;
+	background-color: var(--vscode-editor-background);
+	font-weight: 600;
+	border-bottom-width: 2px;
+}
+tbody tr:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+tbody tr.expired {
+	color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+}
+.row-actions {
+	display: flex;
+	gap: 0.4rem;
+}
+button.action {
+	padding: 0.15rem 0.6rem;
+	font-size: 0.85em;
+	background-color: transparent;
+	color: var(--vscode-foreground);
+	border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.4)));
+}
+button.action:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+button.action:disabled {
+	opacity: 0.5;
+	cursor: default;
+}

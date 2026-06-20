@@ -1,0 +1,92 @@
+body {
+	font-family: var(--vscode-font-family);
+	color: var(--vscode-foreground);
+	padding: 1rem 1.5rem;
+}
+.toolbar {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+}
+h1 {
+	margin: 0;
+	font-size: 1.3em;
+}
+.subtitle {
+	margin: 0.25rem 0 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+.message {
+	margin-top: 1rem;
+	color: var(--vscode-descriptionForeground);
+}
+.hidden {
+	display: none;
+}
+.search-bar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 1rem;
+	position: sticky;
+	top: 0;
+	background-color: var(--vscode-editor-background);
+	padding: 0.25rem 0;
+	z-index: 1;
+}
+.search-bar input[type="text"] {
+	flex: 1 1 16rem;
+	min-width: 12rem;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 2px;
+	padding: 0.3rem 0.4rem;
+}
+.search-count {
+	min-width: 5rem;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.85em;
+}
+.search-nav {
+	padding: 0.2rem 0.5rem;
+	background-color: var(--vscode-button-secondaryBackground, transparent);
+	color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+	border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.4)));
+	border-radius: 2px;
+	cursor: pointer;
+}
+.search-nav:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+.search-opt {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+#content {
+	margin-top: 0.5rem;
+	padding: 0.75rem;
+	background-color: var(--vscode-textCodeBlock-background);
+	border: 1px solid var(--vscode-widget-border, transparent);
+	border-radius: 2px;
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 0.85em;
+	line-height: 1.4;
+	white-space: pre;
+	overflow: auto;
+}
+#content .match {
+	background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
+	color: inherit;
+	border-radius: 2px;
+}
+#content .match.active {
+	background-color: var(--vscode-editor-findMatchBackground, rgba(234, 92, 0, 0.66));
+	outline: 1px solid var(--vscode-editor-findMatchBorder, transparent);
+}

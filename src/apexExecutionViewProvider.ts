@@ -2,11 +2,11 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import { listConnectedOrgs, toOrgOptions } from './sf/orgService';
 import { formatResult, runAnonymousApex, summarize } from './sf/apexService';
-import { queryActiveUsers, queryTraceFlag, setTraceFlag } from './sf/debugLogsService';
+import { listApexLogs } from './sf/debugLogsService';
 import { renderWebviewHtml } from './webview';
+import { showTraceFlagsPanel } from './traceFlagsPanel';
+import { showLogPanel } from './logViewerPanel';
 import { ApexRunResult } from './types';
-
-const SALESFORCE_ID_PATTERN = /^[a-zA-Z0-9]{15,18}$/;
 
 export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	public static readonly viewType = 'salesforceDeveloperToolbox.mainView';
@@ -31,14 +31,14 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 				await this.sendOrgs(webviewView);
 			} else if (message.command === 'execute') {
 				await this.runApex(message.org, message.text, webviewView);
-			} else if (message.command === 'loadUsers') {
-				await this.sendUsers(message.org, webviewView);
-			} else if (message.command === 'userSelected') {
-				await this.sendTraceFlagStatus(message.org, message.userId, webviewView);
-			} else if (message.command === 'setTraceFlag') {
-				await this.doSetTraceFlag(message.org, message.userId, message.minutes, webviewView);
 			} else if (message.command === 'saveLog') {
 				await this.saveLog(message.logs);
+			} else if (message.command === 'manageTraceFlags') {
+				showTraceFlagsPanel(this.extensionUri, message.org);
+			} else if (message.command === 'loadLogs') {
+				await this.sendLogs(message.org, webviewView);
+			} else if (message.command === 'openLog') {
+				showLogPanel(this.extensionUri, message.org, message.id, message.label);
 			}
 		});
 	}
@@ -88,47 +88,16 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 		}
 	}
 
-	private async sendUsers(org: string, webviewView: vscode.WebviewView): Promise<void> {
-		try {
-			const users = await queryActiveUsers(org);
-			webviewView.webview.postMessage({ command: 'users', users });
-		} catch (err) {
-			webviewView.webview.postMessage({ command: 'users', users: [], error: errorMessage(err) });
-		}
-	}
-
-	private async sendTraceFlagStatus(org: string, userId: string, webviewView: vscode.WebviewView): Promise<void> {
-		if (!org || !SALESFORCE_ID_PATTERN.test(userId)) {
+	private async sendLogs(org: string, webviewView: vscode.WebviewView): Promise<void> {
+		if (!org) {
+			webviewView.webview.postMessage({ command: 'logs', logs: [], error: 'Select an org first.' });
 			return;
 		}
 		try {
-			const traceFlag = await queryTraceFlag(org, userId);
-			const message = traceFlag && new Date(traceFlag.ExpirationDate) > new Date()
-				? `Debug logs already enabled until ${new Date(traceFlag.ExpirationDate).toLocaleString()}.`
-				: 'No active trace flag for this user.';
-			webviewView.webview.postMessage({ command: 'traceFlagStatus', message });
+			const logs = await listApexLogs(org);
+			webviewView.webview.postMessage({ command: 'logs', logs });
 		} catch (err) {
-			webviewView.webview.postMessage({ command: 'traceFlagStatus', message: `Could not check trace flag status: ${errorMessage(err)}` });
-		}
-	}
-
-	private async doSetTraceFlag(org: string, userId: string, minutes: number, webviewView: vscode.WebviewView): Promise<void> {
-		if (!org || !SALESFORCE_ID_PATTERN.test(userId) || !Number.isFinite(minutes) || minutes <= 0) {
-			webviewView.webview.postMessage({ command: 'traceFlagResult', message: 'Select an org and a user before setting a trace flag.' });
-			return;
-		}
-
-		try {
-			const expirationDate = await setTraceFlag(org, userId, minutes);
-			webviewView.webview.postMessage({
-				command: 'traceFlagResult',
-				message: `Debug logs enabled until ${expirationDate.toLocaleString()}.`
-			});
-		} catch (err) {
-			const message = errorMessage(err);
-			this.outputChannel.appendLine(`Error setting trace flag: ${message}`);
-			this.outputChannel.show(true);
-			webviewView.webview.postMessage({ command: 'traceFlagResult', message: `Failed to set trace flag: ${message}` });
+			webviewView.webview.postMessage({ command: 'logs', logs: [], error: errorMessage(err) });
 		}
 	}
 

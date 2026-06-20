@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src 'nonce-{{nonce}}';">
+	<link rel="stylesheet" href="{{styleUri}}">
+</head>
+<body>
+	<header class="toolbar">
+		<div>
+			<h1>Debug Log</h1>
+			<p id="subtitle" class="subtitle"></p>
+		</div>
+	</header>
+	<div id="searchBar" class="search-bar hidden">
+		<input id="search" type="text" placeholder="Search log..." spellcheck="false" autocomplete="off">
+		<span id="searchCount" class="search-count"></span>
+		<button id="prevMatch" class="search-nav" type="button" title="Previous match (Shift+Enter)">&#9650;</button>
+		<button id="nextMatch" class="search-nav" type="button" title="Next match (Enter)">&#9660;</button>
+		<label class="search-opt" title="Match case"><input id="caseSensitive" type="checkbox"> Aa</label>
+		<label class="search-opt"><input id="onlyMatching" type="checkbox"> Only matching lines</label>
+		<label class="search-opt"><input id="systemDebugOnly" type="checkbox"> System Debug Only</label>
+	</div>
+	<p id="message" class="message">Loading...</p>
+	<pre id="content" class="hidden"></pre>
+	<script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+</body>
+</html>

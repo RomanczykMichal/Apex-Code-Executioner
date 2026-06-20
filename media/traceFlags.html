@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src 'nonce-{{nonce}}';">
+	<link rel="stylesheet" href="{{styleUri}}">
+</head>
+<body>
+	<header class="toolbar">
+		<div>
+			<h1>Trace Flags</h1>
+			<p id="subtitle" class="subtitle"></p>
+		</div>
+		<button id="refresh" type="button">Refresh</button>
+	</header>
+
+	<section class="setter">
+		<div class="field">
+			<label for="user">User</label>
+			<select id="user">
+				<option value="">Loading users...</option>
+			</select>
+		</div>
+		<div class="field">
+			<label for="debugLevel">Debug Level</label>
+			<select id="debugLevel">
+				<option value="">Loading debug levels...</option>
+			</select>
+		</div>
+		<div class="field">
+			<label for="duration">Duration</label>
+			<select id="duration">
+				<option value="15">15 minutes</option>
+				<option value="30" selected>30 minutes</option>
+				<option value="60">1 hour</option>
+				<option value="180">3 hours</option>
+				<option value="480">8 hours</option>
+				<option value="1440">24 hours</option>
+			</select>
+		</div>
+		<button id="setTraceFlag" type="button">Set Trace Flag</button>
+	</section>
+	<p class="hint">Duration applies to both "Set Trace Flag" and the per-row "Extend".</p>
+	<p id="actionStatus" class="message"></p>
+
+	<p id="message" class="message">Loading...</p>
+	<table id="table" class="hidden">
+		<thead>
+			<tr>
+				<th>User</th>
+				<th>Username</th>
+				<th>Log Type</th>
+				<th>Debug Level</th>
+				<th>Start</th>
+				<th>Expires</th>
+				<th>Time Left</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody id="tbody"></tbody>
+	</table>
+	<script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+</body>
+</html>

@@ -45,3 +45,56 @@ export interface SfTraceFlag {
 	Id: string;
 	ExpirationDate: string;
 }
+
+export interface SfActiveTraceFlag {
+	Id: string;
+	LogType: string;
+	StartDate: string;
+	ExpirationDate: string;
+	TracedEntityId: string;
+	DebugLevelId: string;
+}
+
+export interface SfDebugLevelInfo {
+	Id: string;
+	MasterLabel: string;
+	DeveloperName: string;
+}
+
+export interface DebugLevelOption {
+	id: string;
+	label: string;
+	isDefault: boolean;
+}
+
+export interface SfApexLog {
+	Id: string;
+	LogLength: number;
+	Operation: string;
+	Application: string;
+	Status: string;
+	DurationMilliseconds: number;
+	StartTime: string;
+	LogUser?: { Name: string };
+}
+
+/** A flattened row for the Log Entries table. */
+export interface ApexLogRow {
+	id: string;
+	user: string;
+	operation: string;
+	status: string;
+	logLength: number;
+	startTime: string;
+}
+
+/** A flattened row for the Trace Flags table (active and expired). */
+export interface TraceFlagRow {
+	id: string;
+	userName: string;
+	username: string;
+	logType: string;
+	debugLevel: string;
+	startDate: string;
+	expirationDate: string;
+}
