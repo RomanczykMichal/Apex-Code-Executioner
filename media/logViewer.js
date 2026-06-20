@@ -11,6 +11,7 @@
 	const caseSensitive = document.getElementById('caseSensitive');
 	const onlyMatching = document.getElementById('onlyMatching');
 	const systemDebugOnly = document.getElementById('systemDebugOnly');
+	const downloadButton = document.getElementById('download');
 
 	const SYSTEM_DEBUG_MARKER = '|USER_DEBUG|';
 
@@ -27,6 +28,7 @@
 		message.classList.remove('hidden');
 		content.classList.add('hidden');
 		searchBar.classList.add('hidden');
+		downloadButton.classList.add('hidden');
 	}
 
 	function highlightLine(line, query, matchCase) {
@@ -119,6 +121,12 @@
 	});
 	prevButton.addEventListener('click', () => goTo(-1));
 	nextButton.addEventListener('click', () => goTo(1));
+	downloadButton.addEventListener('click', () => {
+		if (!rawLog) {
+			return;
+		}
+		vscode.postMessage({ command: 'download', content: rawLog });
+	});
 	caseSensitive.addEventListener('change', renderLog);
 	onlyMatching.addEventListener('change', renderLog);
 	systemDebugOnly.addEventListener('change', renderLog);
@@ -141,6 +149,7 @@
 			message.classList.add('hidden');
 			content.classList.remove('hidden');
 			searchBar.classList.remove('hidden');
+			downloadButton.classList.remove('hidden');
 			renderLog();
 			searchInput.focus();
 		} else if (msg.command === 'error') {

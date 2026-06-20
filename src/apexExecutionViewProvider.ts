@@ -1,17 +1,18 @@
-import * as os from 'os';
 import * as vscode from 'vscode';
 import { listConnectedOrgs, toOrgOptions } from './sf/orgService';
 import { formatResult, runAnonymousApex, summarize } from './sf/apexService';
 import { listApexLogs } from './sf/debugLogsService';
 import { renderWebviewHtml } from './webview';
 import { showTraceFlagsPanel } from './traceFlagsPanel';
-import { showLogPanel } from './logViewerPanel';
+import { showLogContent, showLogPanel } from './logViewerPanel';
 import { ApexRunResult } from './types';
 
 export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	public static readonly viewType = 'salesforceDeveloperToolbox.mainView';
 
 	private readonly outputChannel = vscode.window.createOutputChannel('Salesforce Developer Toolbox');
+
+	private lastApexResult?: { content: string; label: string };
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -31,14 +32,14 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 				await this.sendOrgs(webviewView);
 			} else if (message.command === 'execute') {
 				await this.runApex(message.org, message.text, webviewView);
-			} else if (message.command === 'saveLog') {
-				await this.saveLog(message.logs);
 			} else if (message.command === 'manageTraceFlags') {
 				showTraceFlagsPanel(this.extensionUri, message.org);
 			} else if (message.command === 'loadLogs') {
 				await this.sendLogs(message.org, webviewView);
 			} else if (message.command === 'openLog') {
 				showLogPanel(this.extensionUri, message.org, message.id, message.label);
+			} else if (message.command === 'showLastResult') {
+				this.openLastResult();
 			}
 		});
 	}
@@ -72,20 +73,25 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 				command: 'status',
 				text: result.success ? 'Execution succeeded.' : 'Execution failed.'
 			});
-			webviewView.webview.postMessage({
-				command: 'result',
-				success: result.success,
-				summary: summarize(result),
-				logs: result.logs ?? ''
-			});
+			const summary = summarize(result);
+			const content = result.logs ? `${summary}\n\n${result.logs}` : summary;
+			this.lastApexResult = { content, label: `Anonymous Apex (${org})` };
+			showLogContent(this.extensionUri, content, this.lastApexResult.label);
 		} catch (err) {
 			const message = errorMessage(err);
 			this.outputChannel.appendLine(`Error: ${message}`);
 			this.outputChannel.show(true);
 			vscode.window.showErrorMessage(`Failed to execute Apex: ${message}`);
 			webviewView.webview.postMessage({ command: 'status', text: 'Execution failed to start.' });
-			webviewView.webview.postMessage({ command: 'result', success: false, summary: message, logs: '' });
 		}
+	}
+
+	private openLastResult(): void {
+		if (!this.lastApexResult) {
+			vscode.window.showInformationMessage('Run Anonymous Apex first to see its debug log.');
+			return;
+		}
+		showLogContent(this.extensionUri, this.lastApexResult.content, this.lastApexResult.label);
 	}
 
 	private async sendLogs(org: string, webviewView: vscode.WebviewView): Promise<void> {
@@ -98,33 +104,6 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 			webviewView.webview.postMessage({ command: 'logs', logs });
 		} catch (err) {
 			webviewView.webview.postMessage({ command: 'logs', logs: [], error: errorMessage(err) });
-		}
-	}
-
-	private async saveLog(logs: string): Promise<void> {
-		if (!logs) {
-			vscode.window.showWarningMessage('There is no debug log to save.');
-			return;
-		}
-
-		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-		const fileName = `apex-debug-${timestamp}.log`;
-		const folders = vscode.workspace.workspaceFolders;
-		const baseUri = folders && folders.length > 0 ? folders[0].uri : vscode.Uri.file(os.homedir());
-		const uri = await vscode.window.showSaveDialog({
-			saveLabel: 'Save Debug Log',
-			defaultUri: vscode.Uri.joinPath(baseUri, fileName),
-			filters: { 'Log files': ['log'], 'Text files': ['txt'], 'All files': ['*'] }
-		});
-		if (!uri) {
-			return;
-		}
-
-		try {
-			await vscode.workspace.fs.writeFile(uri, Buffer.from(logs, 'utf8'));
-			vscode.window.showInformationMessage(`Debug log saved to ${uri.fsPath}.`);
-		} catch (err) {
-			vscode.window.showErrorMessage(`Failed to save debug log: ${errorMessage(err)}`);
 		}
 	}
 

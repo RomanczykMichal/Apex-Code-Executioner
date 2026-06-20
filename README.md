@@ -10,9 +10,8 @@ The extension adds a **Salesforce Developer Toolbox** view to the Activity Bar. 
 
 - **Write Apex** in a syntax-highlighted editor (keywords, types, strings, comments, numbers, annotations, and inline SOQL keywords are colored to match your VS Code theme).
 - **Execute** the code with one click — it's run via `sf apex run --target-org <org>` against the selected org.
-- **Review the result** inline: compile errors, exceptions and stack traces, and the full debug log are shown directly in the panel (and mirrored to the "Salesforce Developer Toolbox" output channel).
-- **Filter to `System.debug` output only** with the "System Debug Only" checkbox, which appears once a result is available, to cut through the noise of the full execution log.
-- **Save the debug log** to a file with the "Save Log" button.
+- **Review the result** on the Debug Log page: compile errors, exceptions and stack traces, and the full debug log open in an editor page (the same viewer used for stored logs, with search, filtering, and download). The outcome is also mirrored to the "Salesforce Developer Toolbox" output channel.
+- **Reopen the last result** with the **Open Debug Log** button if you closed the page.
 
 ### Debug Logs Manager
 
@@ -26,8 +25,11 @@ The Debug Logs Manager tab has a **Manage Trace Flags** button and a **Log Entri
 
 **Log Entries** lists the debug logs stored in the org (user, operation, status, size, time), with its own **Refresh** button:
 
-- **Click a log** to open its full body on an editor page.
+- **Click a log** to open its full body on the Debug Log page.
 - **Search the log** with a built-in search bar: highlight all matches with a match counter, jump between them (▲/▼ or Enter / Shift+Enter), toggle case sensitivity, collapse to only matching lines, or filter to **System Debug Only** (`System.debug` output). VS Code's native find (`Ctrl+F`) also works in the log view.
+- **Download the log** to a file with the **Download** button on the Debug Log page.
+
+> Logs are fetched on demand via the `sf` CLI and shown from memory — no files are written unless you use **Download**. A single log is limited by the CLI output buffer (~10 MB).
 
 ## Requirements
 

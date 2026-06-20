@@ -25,6 +25,18 @@ h1 {
 .hidden {
 	display: none;
 }
+#download {
+	flex-shrink: 0;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: none;
+	border-radius: 2px;
+	padding: 0.4rem 1rem;
+	cursor: pointer;
+}
+#download:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
 .search-bar {
 	display: flex;
 	align-items: center;
@@ -82,11 +94,14 @@ h1 {
 	overflow: auto;
 }
 #content .match {
-	background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
-	color: inherit;
+	background-color: #fbbf24;
+	color: #1f1f1f;
 	border-radius: 2px;
 }
 #content .match.active {
-	background-color: var(--vscode-editor-findMatchBackground, rgba(234, 92, 0, 0.66));
-	outline: 1px solid var(--vscode-editor-findMatchBorder, transparent);
+	background-color: #f97316;
+	color: #1f1f1f;
+	font-weight: bold;
+	outline: 2px solid #ef4444;
+	outline-offset: 1px;
 }

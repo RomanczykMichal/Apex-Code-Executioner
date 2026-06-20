@@ -3,15 +3,11 @@
 	const orgSelect = document.getElementById('org');
 	const input = document.getElementById('input');
 	const status = document.getElementById('status');
-	const output = document.getElementById('output');
-	const debugOnly = document.getElementById('debugOnly');
-	const debugOnlyRow = document.getElementById('debugOnlyRow');
 	const highlightCode = document.getElementById('highlightCode');
 	const highlightPre = document.querySelector('.highlight');
 	const tabButtons = document.querySelectorAll('.tab-button');
 	const tabContents = document.querySelectorAll('.tab-content');
 	const traceStatus = document.getElementById('traceStatus');
-	const saveLogButton = document.getElementById('saveLog');
 	const refreshLogsButton = document.getElementById('refreshLogs');
 	const logsTable = document.getElementById('logsTable');
 	const logsBody = document.getElementById('logsBody');
@@ -128,47 +124,12 @@
 	input.addEventListener('scroll', syncHighlightScroll);
 	refreshHighlight();
 
-	let lastResult = null;
-
-	function renderOutput() {
-		if (!lastResult) {
-			output.style.display = 'none';
-			debugOnlyRow.classList.remove('visible');
-			saveLogButton.classList.add('hidden');
-			return;
-		}
-		let logs = lastResult.logs || '';
-		if (debugOnly.checked && logs) {
-			logs = logs.split('\n').filter((line) => line.includes('|USER_DEBUG|')).join('\n');
-			if (!logs) {
-				logs = '(no System.debug output)';
-			}
-		}
-		const text = logs ? lastResult.summary + '\n\n' + logs : lastResult.summary;
-		output.textContent = text;
-		output.classList.remove('success', 'failure');
-		if (lastResult.success === true) {
-			output.classList.add('success');
-		} else if (lastResult.success === false) {
-			output.classList.add('failure');
-		}
-		const visible = !!text;
-		output.style.display = visible ? 'block' : 'none';
-		debugOnlyRow.classList.toggle('visible', visible);
-		saveLogButton.classList.toggle('hidden', !(visible && !!lastResult.logs));
-	}
-
 	document.getElementById('execute').addEventListener('click', () => {
 		vscode.postMessage({ command: 'execute', org: orgSelect.value, text: input.value });
 	});
 
-	debugOnly.addEventListener('change', renderOutput);
-
-	saveLogButton.addEventListener('click', () => {
-		if (!lastResult || !lastResult.logs) {
-			return;
-		}
-		vscode.postMessage({ command: 'saveLog', logs: lastResult.logs });
+	document.getElementById('openResult').addEventListener('click', () => {
+		vscode.postMessage({ command: 'showLastResult' });
 	});
 
 	function isDebugTabActive() {
@@ -292,9 +253,6 @@
 			}
 		} else if (message.command === 'status') {
 			status.textContent = message.text;
-		} else if (message.command === 'result') {
-			lastResult = { success: message.success, summary: message.summary || '', logs: message.logs || '' };
-			renderOutput();
 		} else if (message.command === 'logs') {
 			renderLogs(message.logs, message.error);
 		}

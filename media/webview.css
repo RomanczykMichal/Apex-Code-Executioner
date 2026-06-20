@@ -135,47 +135,13 @@ button {
 button:hover {
 	background-color: var(--vscode-button-hoverBackground);
 }
-.checkbox-row {
-	display: none;
-	align-items: center;
-	gap: 0.4rem;
-	margin-top: 0.5rem;
-	font-size: 0.9em;
-}
-.checkbox-row.visible {
-	display: flex;
-}
 .hidden {
 	display: none;
-}
-.checkbox-row input {
-	margin: 0;
 }
 #status {
 	margin-top: 0.5rem;
 	color: var(--vscode-descriptionForeground);
 	font-size: 0.9em;
-}
-#output {
-	display: none;
-	margin-top: 0.5rem;
-	max-height: 18rem;
-	overflow: auto;
-	white-space: pre-wrap;
-	word-break: break-word;
-	background-color: var(--vscode-textCodeBlock-background);
-	border: 1px solid var(--vscode-widget-border, transparent);
-	border-left-width: 3px;
-	border-radius: 2px;
-	padding: 0.5rem;
-	font-family: var(--vscode-editor-font-family, monospace);
-	font-size: 0.85em;
-}
-#output.success {
-	border-left-color: var(--vscode-charts-green);
-}
-#output.failure {
-	border-left-color: var(--vscode-charts-red);
 }
 #traceStatus {
 	margin-top: 0.5rem;
