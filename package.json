@@ -2,7 +2,7 @@
   "name": "anonymous-apex-execution",
   "displayName": "Anonymous Apex Execution",
   "description": "",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.120.0"
   },
@@ -16,8 +16,8 @@
       "activitybar": [
         {
           "id": "anonymousApexExecution",
-          "title": "Execute Anonymous Apex",
-          "icon": "$(rocket)"
+          "title": "Salesforce Apex Code Executioner",
+          "icon": "logo.svg"
         }
       ]
     },

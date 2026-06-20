@@ -6,6 +6,8 @@ import * as os from 'os';
 import * as path from 'path';
 
 const MAX_INPUT_LENGTH = 4000;
+const TRACE_FLAG_DEBUG_LEVEL_NAME = 'ApexExecutioner';
+const SALESFORCE_ID_PATTERN = /^[a-zA-Z0-9]{15,18}$/;
 
 interface ApexRunResult {
 	success: boolean;
@@ -29,6 +31,30 @@ interface OrgOption {
 	username: string;
 }
 
+interface SfUser {
+	Id: string;
+	Name: string;
+	Username: string;
+}
+
+interface UserOption {
+	id: string;
+	label: string;
+}
+
+interface SfQueryResult<T> {
+	records: T[];
+}
+
+interface SfDebugLevel {
+	Id: string;
+}
+
+interface SfTraceFlag {
+	Id: string;
+	ExpirationDate: string;
+}
+
 export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	public static readonly viewType = 'anonymousApexExecution.apexExecutionView';
 
@@ -49,6 +75,12 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 				await this.sendOrgs(webviewView);
 			} else if (message.command === 'execute') {
 				await this.runApex(message.org, message.text, webviewView);
+			} else if (message.command === 'loadUsers') {
+				await this.sendUsers(message.org, webviewView);
+			} else if (message.command === 'userSelected') {
+				await this.sendTraceFlagStatus(message.org, message.userId, webviewView);
+			} else if (message.command === 'setTraceFlag') {
+				await this.setTraceFlag(message.org, message.userId, message.minutes, webviewView);
 			}
 		});
 	}
@@ -121,7 +153,15 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 					try {
 						const parsed = JSON.parse(stdout);
 						const groups: SfOrg[][] = Object.values(parsed.result ?? {});
-						resolve(groups.flat().filter((org) => org.connectedStatus === 'Connected'));
+						// A single org can appear in several groups (e.g. a Dev Hub shows up in
+						// both "devHubs" and "nonScratchOrgs"), so dedupe by username.
+						const byUsername = new Map<string, SfOrg>();
+						for (const org of groups.flat()) {
+							if (org.connectedStatus === 'Connected' && !byUsername.has(org.username)) {
+								byUsername.set(org.username, org);
+							}
+						}
+						resolve([...byUsername.values()]);
 					} catch {
 						reject(new Error('Could not parse "sf org list" output.'));
 					}
@@ -154,6 +194,160 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 				}
 			);
 		});
+	}
+
+	// With shell:true, args are joined by spaces before being handed to cmd.exe, so any
+	// arg containing spaces (e.g. --query/--values strings) must be pre-wrapped in quotes.
+	private runSf<T>(args: string[]): Promise<T> {
+		return new Promise((resolve, reject) => {
+			childProcess.execFile(
+				'sf',
+				args,
+				{ shell: true, maxBuffer: 10 * 1024 * 1024 },
+				(error, stdout) => {
+					if (!stdout) {
+						reject(error ?? new Error('No output from Salesforce CLI.'));
+						return;
+					}
+					try {
+						const parsed = JSON.parse(stdout);
+						if (parsed.result === undefined) {
+							reject(new Error(parsed.message ?? 'Salesforce CLI returned an error.'));
+							return;
+						}
+						resolve(parsed.result as T);
+					} catch {
+						reject(error ?? new Error('Could not parse Salesforce CLI output.'));
+					}
+				}
+			);
+		});
+	}
+
+	private async sendUsers(org: string, webviewView: vscode.WebviewView): Promise<void> {
+		try {
+			const soql = 'SELECT Id, Name, Username FROM User WHERE IsActive = true ORDER BY Name LIMIT 200';
+			const result = await this.runSf<SfQueryResult<SfUser>>([
+				'data', 'query', '--query', `"${soql}"`, '--target-org', org, '--json'
+			]);
+			const options: UserOption[] = (result.records ?? []).map((user) => ({
+				id: user.Id,
+				label: `${user.Name} (${user.Username})`
+			}));
+			webviewView.webview.postMessage({ command: 'users', users: options });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			webviewView.webview.postMessage({ command: 'users', users: [], error: message });
+		}
+	}
+
+	private async getOrCreateDebugLevelId(org: string): Promise<string> {
+		const soql = `SELECT Id FROM DebugLevel WHERE DeveloperName='${TRACE_FLAG_DEBUG_LEVEL_NAME}'`;
+		const existing = await this.runSf<SfQueryResult<SfDebugLevel>>([
+			'data', 'query', '--query', `"${soql}"`, '--use-tooling-api', '--target-org', org, '--json'
+		]);
+		if (existing.records && existing.records.length > 0) {
+			return existing.records[0].Id;
+		}
+
+		const values = [
+			`DeveloperName=${TRACE_FLAG_DEBUG_LEVEL_NAME}`,
+			`MasterLabel=${TRACE_FLAG_DEBUG_LEVEL_NAME}`,
+			'ApexCode=FINEST',
+			'ApexProfiling=FINEST',
+			'Callout=FINEST',
+			'Database=FINEST',
+			'System=FINE',
+			'Validation=INFO',
+			'Visualforce=FINER',
+			'Workflow=FINER'
+		].join(' ');
+		const created = await this.runSf<{ id: string }>([
+			'data', 'create', 'record', '--sobject', 'DebugLevel', '--use-tooling-api',
+			'--target-org', org, '--values', `"${values}"`, '--json'
+		]);
+		return created.id;
+	}
+
+	private async queryTraceFlag(org: string, userId: string): Promise<SfTraceFlag | undefined> {
+		const soql = `SELECT Id, ExpirationDate FROM TraceFlag WHERE TracedEntityId='${userId}' AND LogType='USER_DEBUG' ORDER BY ExpirationDate DESC LIMIT 1`;
+		const result = await this.runSf<SfQueryResult<SfTraceFlag>>([
+			'data', 'query', '--query', `"${soql}"`, '--use-tooling-api', '--target-org', org, '--json'
+		]);
+		return result.records?.[0];
+	}
+
+	private async deleteTraceFlags(org: string, userId: string): Promise<void> {
+		const soql = `SELECT Id FROM TraceFlag WHERE TracedEntityId='${userId}' AND LogType='USER_DEBUG'`;
+		const result = await this.runSf<SfQueryResult<SfTraceFlag>>([
+			'data', 'query', '--query', `"${soql}"`, '--use-tooling-api', '--target-org', org, '--json'
+		]);
+		for (const flag of result.records ?? []) {
+			await this.runSf([
+				'data', 'delete', 'record', '--sobject', 'TraceFlag', '--use-tooling-api',
+				'--target-org', org, '--record-id', flag.Id, '--json'
+			]);
+		}
+	}
+
+	private async sendTraceFlagStatus(org: string, userId: string, webviewView: vscode.WebviewView): Promise<void> {
+		if (!org || !SALESFORCE_ID_PATTERN.test(userId)) {
+			return;
+		}
+		try {
+			const traceFlag = await this.queryTraceFlag(org, userId);
+			const message = traceFlag && new Date(traceFlag.ExpirationDate) > new Date()
+				? `Debug logs already enabled until ${new Date(traceFlag.ExpirationDate).toLocaleString()}.`
+				: 'No active trace flag for this user.';
+			webviewView.webview.postMessage({ command: 'traceFlagStatus', message });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			webviewView.webview.postMessage({ command: 'traceFlagStatus', message: `Could not check trace flag status: ${message}` });
+		}
+	}
+
+	private async setTraceFlag(org: string, userId: string, minutes: number, webviewView: vscode.WebviewView): Promise<void> {
+		if (!org || !SALESFORCE_ID_PATTERN.test(userId) || !Number.isFinite(minutes) || minutes <= 0) {
+			webviewView.webview.postMessage({ command: 'traceFlagResult', message: 'Select an org and a user before setting a trace flag.' });
+			return;
+		}
+
+		try {
+			const debugLevelId = await this.getOrCreateDebugLevelId(org);
+			const startDate = new Date();
+			// Salesforce rejects a trace flag whose window is 24h or more, so keep it strictly under.
+			const maxDurationMs = 24 * 60 * 60 * 1000 - 60 * 1000;
+			const durationMs = Math.min(minutes * 60 * 1000, maxDurationMs);
+			const expirationDate = new Date(startDate.getTime() + durationMs);
+
+			// Salesforce won't move an existing flag's StartDate, so updating only the
+			// ExpirationDate keeps failing the "< 24h from StartDate" rule when the original
+			// StartDate is old. Delete every existing USER_DEBUG flag for the user and create a
+			// fresh one whose window is exactly the chosen duration.
+			await this.deleteTraceFlags(org, userId);
+
+			const values = [
+				`TracedEntityId=${userId}`,
+				`DebugLevelId=${debugLevelId}`,
+				'LogType=USER_DEBUG',
+				`StartDate=${startDate.toISOString()}`,
+				`ExpirationDate=${expirationDate.toISOString()}`
+			].join(' ');
+			await this.runSf<{ id: string }>([
+				'data', 'create', 'record', '--sobject', 'TraceFlag', '--use-tooling-api',
+				'--target-org', org, '--values', `"${values}"`, '--json'
+			]);
+
+			webviewView.webview.postMessage({
+				command: 'traceFlagResult',
+				message: `Debug logs enabled until ${expirationDate.toLocaleString()}.`
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			this.outputChannel.appendLine(`Error setting trace flag: ${message}`);
+			this.outputChannel.show(true);
+			webviewView.webview.postMessage({ command: 'traceFlagResult', message: `Failed to set trace flag: ${message}` });
+		}
 	}
 
 	private summarize(result: ApexRunResult): string {
@@ -211,6 +405,47 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 			border: 1px solid var(--vscode-dropdown-border, transparent);
 			border-radius: 2px;
 			padding: 0.3rem;
+		}
+		.tab-bar {
+			display: flex;
+			gap: 0.25rem;
+			margin-top: 0.75rem;
+			border-bottom: 1px solid var(--vscode-widget-border, transparent);
+		}
+		.tab-button {
+			margin-top: 0;
+			background: none;
+			color: var(--vscode-foreground);
+			border: none;
+			border-bottom: 2px solid transparent;
+			border-radius: 0;
+			padding: 0.4rem 0.75rem;
+			opacity: 0.7;
+		}
+		.tab-button:hover {
+			opacity: 1;
+			background: none;
+		}
+		.tab-button.active {
+			opacity: 1;
+			font-weight: 600;
+			border-bottom-color: var(--vscode-focusBorder, var(--vscode-button-background));
+		}
+		.tab-content {
+			display: none;
+		}
+		.tab-content.active {
+			display: block;
+		}
+		label {
+			display: block;
+			margin-top: 0.75rem;
+			font-size: 0.9em;
+			color: var(--vscode-descriptionForeground);
+		}
+		.org-label {
+			margin-top: 0;
+			margin-bottom: 0.25rem;
 		}
 		.editor-wrap {
 			position: relative;
@@ -328,25 +563,56 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 		#output.failure {
 			border-left-color: var(--vscode-charts-red);
 		}
+		#traceStatus {
+			margin-top: 0.5rem;
+			color: var(--vscode-descriptionForeground);
+			font-size: 0.9em;
+		}
 	</style>
 </head>
 <body>
+	<label for="org" class="org-label">Salesforce Org</label>
 	<select id="org">
 		<option value="">Loading orgs...</option>
 	</select>
-	<div class="editor-wrap">
-		<pre class="highlight" aria-hidden="true"><code id="highlightCode"></code></pre>
-		<textarea id="input" maxlength="${MAX_INPUT_LENGTH}" placeholder="Enter Apex code..." spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+	<div class="tab-bar">
+		<button class="tab-button active" type="button" data-tab="apex">Anonymous Apex</button>
+		<button class="tab-button" type="button" data-tab="debug">Debug Logs Manager</button>
 	</div>
-	<div>
-		<button id="execute">Execute</button>
+	<div class="tab-content active" id="tab-apex">
+		<div class="editor-wrap">
+			<pre class="highlight" aria-hidden="true"><code id="highlightCode"></code></pre>
+			<textarea id="input" maxlength="${MAX_INPUT_LENGTH}" placeholder="Enter Apex code..." spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+		</div>
+		<div>
+			<button id="execute">Execute</button>
+		</div>
+		<p id="status"></p>
+		<label class="checkbox-row" id="debugOnlyRow">
+			<input type="checkbox" id="debugOnly">
+			System Debug Only
+		</label>
+		<pre id="output"></pre>
 	</div>
-	<p id="status"></p>
-	<label class="checkbox-row" id="debugOnlyRow">
-		<input type="checkbox" id="debugOnly">
-		System Debug Only
-	</label>
-	<pre id="output"></pre>
+	<div class="tab-content" id="tab-debug">
+		<label for="user">User</label>
+		<select id="user">
+			<option value="">Select an org first</option>
+		</select>
+		<label for="duration">Trace duration</label>
+		<select id="duration">
+			<option value="15">15 minutes</option>
+			<option value="30" selected>30 minutes</option>
+			<option value="60">1 hour</option>
+			<option value="180">3 hours</option>
+			<option value="480">8 hours</option>
+			<option value="1440">24 hours</option>
+		</select>
+		<div>
+			<button id="setTraceFlag">Set Trace Flag</button>
+		</div>
+		<p id="traceStatus"></p>
+	</div>
 	<script>
 		const vscode = acquireVsCodeApi();
 		const orgSelect = document.getElementById('org');
@@ -357,6 +623,12 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 		const debugOnlyRow = document.getElementById('debugOnlyRow');
 		const highlightCode = document.getElementById('highlightCode');
 		const highlightPre = document.querySelector('.highlight');
+			const tabButtons = document.querySelectorAll('.tab-button');
+			const tabContents = document.querySelectorAll('.tab-content');
+			const userSelect = document.getElementById('user');
+			const durationSelect = document.getElementById('duration');
+			const traceStatus = document.getElementById('traceStatus');
+			let usersLoadedForOrg = null;
 
 		const APEX_KEYWORDS = new Set(['public','private','protected','global','class','interface','enum','extends','implements','static','final','abstract','virtual','override','void','return','if','else','for','while','do','switch','on','case','default','break','continue','new','this','super','try','catch','finally','throw','trigger','before','after','insert','update','delete','undelete','upsert','merge','instanceof','null','true','false','transient','testmethod','with','without','sharing','get','set','when']);
 		const APEX_TYPES = new Set(['integer','string','boolean','object','list','set','map','decimal','double','long','date','datetime','time','id','blob','sobject']);
@@ -503,6 +775,58 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 
 		debugOnly.addEventListener('change', renderOutput);
 
+		function activateTab(tab) {
+			tabButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tab));
+			tabContents.forEach((content) => content.classList.toggle('active', content.id === 'tab-' + tab));
+			if (tab === 'debug') {
+				ensureUsersLoaded();
+			}
+		}
+
+		tabButtons.forEach((btn) => {
+			btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+		});
+
+		function ensureUsersLoaded() {
+			const org = orgSelect.value;
+			if (!org || usersLoadedForOrg === org) {
+				return;
+			}
+			userSelect.innerHTML = '<option value="">Loading users...</option>';
+			traceStatus.textContent = '';
+			vscode.postMessage({ command: 'loadUsers', org });
+		}
+
+		orgSelect.addEventListener('change', () => {
+			usersLoadedForOrg = null;
+			traceStatus.textContent = '';
+			const activeTab = document.querySelector('.tab-content.active');
+			if (activeTab && activeTab.id === 'tab-debug') {
+				ensureUsersLoaded();
+			}
+		});
+
+		userSelect.addEventListener('change', () => {
+			traceStatus.textContent = '';
+			const org = orgSelect.value;
+			const userId = userSelect.value;
+			if (org && userId) {
+				vscode.postMessage({ command: 'userSelected', org, userId });
+			}
+		});
+
+		document.getElementById('setTraceFlag').addEventListener('click', () => {
+			const org = orgSelect.value;
+			const userId = userSelect.value;
+			const minutes = Number(durationSelect.value);
+			if (!org || !userId) {
+				traceStatus.textContent = 'Select an org and a user first.';
+				return;
+			}
+			traceStatus.textContent = 'Setting trace flag...';
+			vscode.postMessage({ command: 'setTraceFlag', org, userId, minutes });
+		});
+
 		window.addEventListener('message', (event) => {
 			const message = event.data;
 			if (!message) {
@@ -528,6 +852,28 @@ export class ApexExecutionViewProvider implements vscode.WebviewViewProvider, vs
 			} else if (message.command === 'result') {
 				lastResult = { success: message.success, summary: message.summary || '', logs: message.logs || '' };
 				renderOutput();
+			} else if (message.command === 'users') {
+				userSelect.innerHTML = '';
+				usersLoadedForOrg = orgSelect.value;
+				if (!message.users || message.users.length === 0) {
+					const option = document.createElement('option');
+					option.value = '';
+					option.textContent = message.error ? 'Failed to load users' : 'No active users found';
+					userSelect.appendChild(option);
+					return;
+				}
+				const placeholder = document.createElement('option');
+				placeholder.value = '';
+				placeholder.textContent = 'Select a user...';
+				userSelect.appendChild(placeholder);
+				for (const user of message.users) {
+					const option = document.createElement('option');
+					option.value = user.id;
+					option.textContent = user.label;
+					userSelect.appendChild(option);
+				}
+			} else if (message.command === 'traceFlagStatus' || message.command === 'traceFlagResult') {
+				traceStatus.textContent = message.message || '';
 			}
 		});
 
